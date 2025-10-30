@@ -52,6 +52,8 @@ const Index = () => {
   const [currentPiece, setCurrentPiece] = useState<Piece | null>(null);
   const [nextPiece, setNextPiece] = useState<Piece>(getRandomPiece());
   const [score, setScore] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [linesCleared, setLinesCleared] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -126,6 +128,18 @@ const Index = () => {
     if (linesCleared > 0) {
       const points = [0, 100, 300, 500, 800][linesCleared];
       setScore(prev => prev + points);
+      setLinesCleared(prev => {
+        const newTotal = prev + linesCleared;
+        const newLevel = Math.floor(newTotal / 10) + 1;
+        if (newLevel > level) {
+          setLevel(newLevel);
+          toast({
+            title: `🚀 Уровень ${newLevel}!`,
+            description: 'Скорость увеличена',
+          });
+        }
+        return newTotal;
+      });
       toast({
         title: `${linesCleared} ${linesCleared === 1 ? 'линия' : 'линии'}!`,
         description: `+${points} очков`,
@@ -246,9 +260,10 @@ const Index = () => {
 
   useEffect(() => {
     if (isPlaying && !isPaused && !gameOver) {
+      const speed = Math.max(200, 800 - (level - 1) * 60);
       gameLoopRef.current = setInterval(() => {
         movePiece('down');
-      }, 800);
+      }, speed);
     }
 
     return () => {
@@ -256,13 +271,15 @@ const Index = () => {
         clearInterval(gameLoopRef.current);
       }
     };
-  }, [isPlaying, isPaused, gameOver, movePiece]);
+  }, [isPlaying, isPaused, gameOver, movePiece, level]);
 
   const startGame = () => {
     setBoard(createEmptyBoard());
     setCurrentPiece(getRandomPiece());
     setNextPiece(getRandomPiece());
     setScore(0);
+    setLevel(1);
+    setLinesCleared(0);
     setGameOver(false);
     setIsPaused(false);
     setIsPlaying(true);
@@ -368,14 +385,22 @@ const Index = () => {
               </div>
             </div>
 
-            <div className="flex gap-4 text-sm">
-              <div className="flex flex-col items-center">
-                <span className="text-muted-foreground">Счёт</span>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex flex-col items-center p-3 bg-background/30 rounded-lg">
+                <span className="text-muted-foreground text-xs">Счёт</span>
                 <span className="text-2xl font-bold text-primary">{score}</span>
               </div>
-              <div className="flex flex-col items-center">
-                <span className="text-muted-foreground">Рекорд</span>
+              <div className="flex flex-col items-center p-3 bg-background/30 rounded-lg">
+                <span className="text-muted-foreground text-xs">Рекорд</span>
                 <span className="text-2xl font-bold text-secondary">{highScore}</span>
+              </div>
+              <div className="flex flex-col items-center p-3 bg-background/30 rounded-lg">
+                <span className="text-muted-foreground text-xs">Уровень</span>
+                <span className="text-2xl font-bold text-accent">{level}</span>
+              </div>
+              <div className="flex flex-col items-center p-3 bg-background/30 rounded-lg">
+                <span className="text-muted-foreground text-xs">Линии</span>
+                <span className="text-2xl font-bold text-foreground">{linesCleared}</span>
               </div>
             </div>
           </div>
