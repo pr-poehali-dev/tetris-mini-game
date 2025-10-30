@@ -58,8 +58,32 @@ const Index = () => {
   const [gameOver, setGameOver] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  const playSound = useCallback((frequency: number, duration: number, type: OscillatorType = 'square') => {
+    if (!soundEnabled) return;
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    } catch (e) {
+      console.log('Audio not supported');
+    }
+  }, [soundEnabled]);
 
   useEffect(() => {
     const savedHighScore = localStorage.getItem('tetris-highscore');
@@ -128,11 +152,26 @@ const Index = () => {
     if (linesCleared > 0) {
       const points = [0, 100, 300, 500, 800][linesCleared];
       setScore(prev => prev + points);
+      
+      if (linesCleared === 4) {
+        playSound(800, 0.1);
+        setTimeout(() => playSound(1000, 0.15), 100);
+        setTimeout(() => playSound(1200, 0.2), 200);
+      } else if (linesCleared >= 2) {
+        playSound(600, 0.1);
+        setTimeout(() => playSound(800, 0.15), 100);
+      } else {
+        playSound(440, 0.15);
+      }
+      
       setLinesCleared(prev => {
         const newTotal = prev + linesCleared;
         const newLevel = Math.floor(newTotal / 10) + 1;
         if (newLevel > level) {
           setLevel(newLevel);
+          playSound(523, 0.1, 'sine');
+          setTimeout(() => playSound(659, 0.1, 'sine'), 100);
+          setTimeout(() => playSound(784, 0.2, 'sine'), 200);
           toast({
             title: `🚀 Уровень ${newLevel}!`,
             description: 'Скорость увеличена',
@@ -174,6 +213,8 @@ const Index = () => {
       if (checkCollision(nextPiece, nextPiece.position)) {
         setGameOver(true);
         setIsPlaying(false);
+        playSound(200, 0.3);
+        setTimeout(() => playSound(150, 0.5), 300);
         if (score > highScore) {
           setHighScore(score);
           localStorage.setItem('tetris-highscore', score.toString());
@@ -192,8 +233,9 @@ const Index = () => {
     const rotated = rotatePiece(currentPiece);
     if (!checkCollision(rotated, rotated.position)) {
       setCurrentPiece(rotated);
+      playSound(330, 0.05);
     }
-  }, [currentPiece, gameOver, isPaused, checkCollision]);
+  }, [currentPiece, gameOver, isPaused, checkCollision, playSound]);
 
   const hardDrop = useCallback(() => {
     if (!currentPiece || gameOver || isPaused) return;
@@ -202,6 +244,8 @@ const Index = () => {
     while (!checkCollision(currentPiece, { ...currentPiece.position, y: newY + 1 })) {
       newY++;
     }
+    
+    playSound(220, 0.1);
     
     const droppedPiece = { ...currentPiece, position: { ...currentPiece.position, y: newY } };
     const newBoard = mergePieceToBoard(droppedPiece);
@@ -373,6 +417,15 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-primary">ТЕТРИС</h2>
               <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="border-primary/30"
+                  title={soundEnabled ? 'Выключить звук' : 'Включить звук'}
+                >
+                  <Icon name={soundEnabled ? 'Volume2' : 'VolumeX'} size={16} />
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
